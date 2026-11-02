@@ -21,11 +21,62 @@ type LRUCache[K comparable, V any] struct {
 }
 
 func NewLRUCache[K comparable, V any](capacity int) *LRUCache[K, V] {
-	panic("TODO: implement")
+	return &LRUCache[K, V]{
+		capacity: capacity,
+		items:    make(map[K]*list.Element),
+	}
 }
+
 func (c *LRUCache[K, V]) Get(key K) (value V, ok bool) {
-	panic("TODO: implement")
+
+	if c.capacity <= 0 {
+		return
+	}
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	el, ok := c.items[key]
+	if !ok {
+		return
+	}
+
+	item := el.Value.(entry[K, V])
+	c.ll.MoveToFront(el)
+	return item.value, ok
 }
+
 func (c *LRUCache[K, V]) Set(key K, value V) {
-	panic("TODO: implement")
+
+	if c.capacity > 0 {
+
+		c.mu.Lock()
+		defer c.mu.Unlock()
+
+		el, ok := c.items[key]
+
+		if ok {
+			// обновляем только значение по существующему ключу
+			item := el.Value.(entry[K, V])
+			item.value = value
+			el.Value = item
+			return
+		}
+
+		if len(c.items) >= c.capacity {
+			// кэш заполнен, удаляем самый старый элемент
+			old_el := c.ll.Back()
+			old_ent := old_el.Value.(entry[K, V])
+			delete(c.items, old_ent.key)
+			c.ll.Remove(old_el)
+		}
+
+		// добавляем новый элемент в начало списка
+		new_el := c.ll.PushFront(entry[K, V]{
+			key:   key,
+			value: value,
+		})
+
+		c.items[key] = new_el
+	}
 }
